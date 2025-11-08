@@ -1,0 +1,205 @@
+.voice_preview {
+    margin: 0.25rem 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.voice_preview .voice_name {
+    text-align: left;
+    flex: 1;
+}
+
+.voice_preview .voice_lang {
+    width: 4rem;
+    text-align: left;
+}
+
+.voice_preview .fa-play {
+    cursor: pointer;
+}
+
+.tts-button {
+    margin: 0;
+    outline: none;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+    opacity: 0.7;
+    align-items: center;
+    justify-content: center;
+
+}
+
+.tts-button:hover {
+    opacity: 1;
+}
+
+.tts_block {
+    display: flex;
+    align-items: baseline;
+    column-gap: 5px;
+    flex-wrap: wrap;
+}
+
+.tts_custom_voices {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.novel_tts_hints {
+    font-size: calc(0.9 * var(--mainFontSize));
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.at-settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.at-settings-option {
+    flex: 1;
+    margin: 0 10px;
+}
+
+.at-endpoint-option {
+    flex: 1;
+    margin: 0 10px;
+    margin-right: 25px;
+    width: 38%;
+}
+
+.at-website-row {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.at-website-option {
+    flex: 1;
+    margin-right: 10px;
+    margin-left: 10px;
+}
+
+.at-settings-separator {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 18px;
+    font-weight: bold;
+    border-top: 1px solid #e1e1e1; /* Grey line */
+    border-bottom: 1px solid #e1e1e1; /* Grey line */
+    text-align: center;
+}
+
+.at-status-message {
+    flex: 1;
+    margin: 0 10px;
+}
+
+.at-model-endpoint-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.at-model-option, .endpoint-option {
+    flex: 1;
+    margin: 0 10px;
+    margin-left: 10px;
+}
+
+.at-endpoint-option {
+    width: 38%;
+}
+
+#at-status_info {
+    color: lightgreen;
+}
+
+/* 悬浮 TTS 按钮样式 */
+#tts_floating_button {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 45px;
+    height: 45px;
+    background: #2A6BEF;
+    border-radius: 50%;
+    box-shadow: 0 4px 15px rgba(42, 107, 239, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: box-shadow 0.3s ease, background 0.3s ease;
+    /* 明确排除transform的过渡效果，避免位置动画 */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    touch-action: none; /* 禁用默认触摸行为，确保移动端可拖动 */
+    will-change: transform;
+}
+
+/* 移动端专用样式 - 强制上下居中 */
+@media only screen and (max-width: 768px) {
+    #tts_floating_button {
+        position: fixed !important;
+        left: 20px !important;
+        top: 50vh !important; /* 使用vh单位确保移动端正确定位 */
+        transform: translateY(-50%) !important;
+        right: auto !important;
+        bottom: auto !important;
+    }
+    
+    /* 移动端有自定义位置时保持自定义位置不受媒体查询影响 */
+    #tts_floating_button.has-custom-position {
+        position: fixed !important;
+    }
+}
+
+#tts_floating_button.dragging {
+    cursor: grabbing;
+    cursor: -webkit-grabbing;
+}
+
+/* 有自定义位置时的样式，完全移除默认定位 */
+#tts_floating_button.has-custom-position {
+    right: auto !important;
+    bottom: auto !important;
+    left: 0 !important;
+    top: 0 !important;
+}
+
+/* active状态不再需要特殊处理，已通过双击实现停止功能 */
+
+#tts_floating_button i {
+    color: white;
+    font-size: 20px;
+    pointer-events: none;
+    transition: transform 0.3s ease;
+}
+
+/* 播放状态 - 只使用颜色和阴影效果，避免transform冲突 */
+#tts_floating_button.playing {
+    background: #28a745;
+    box-shadow: 0 6px 25px rgba(40, 167, 69, 0.6);
+    /* 移除脉动动画，避免transform冲突导致位置偏移 */
+}
+
+/* 暂停状态 */
+#tts_floating_button.paused {
+    background: #ffc107;
+    box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+}

@@ -1,0 +1,92 @@
+<div id="tts_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>酒馆阅读</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <div id="tts_status">
+            </div>
+            <span>选择 TTS 提供商</span> </br>
+            <div class="tts_block">
+                <select id="tts_provider" class="flex1">
+                </select>
+                <input id="tts_refresh" class="menu_button" type="submit" value="重新加载" />
+            </div>
+            <div>
+                <label class="checkbox_label" for="tts_enabled">
+                    <input type="checkbox" id="tts_enabled" name="tts_enabled">
+                    <small>已启用</small>
+                </label>
+                <label class="checkbox_label" for="tts_narrate_user">
+                    <input type="checkbox" id="tts_narrate_user">
+                    <small>朗读用户消息</small>
+                </label>
+                <label class="checkbox_label" for="tts_auto_generation">
+                    <input type="checkbox" id="tts_auto_generation">
+                    <small>自动生成</small>
+                </label>
+                <label class="checkbox_label" for="tts_periodic_auto_generation" title="需要启用自动生成功能">
+                    <input type="checkbox" id="tts_periodic_auto_generation">
+                    <small>按段朗读（流式播放时）</small>
+                </label>
+                <label class="checkbox_label" for="tts_narrate_quoted">
+                    <input type="checkbox" id="tts_narrate_quoted">
+                    <small>只朗读引号内文本</small>
+                </label>
+                <label class="checkbox_label" for="tts_narrate_dialogues">
+                    <input type="checkbox" id="tts_narrate_dialogues">
+                    <small>不朗读所有*星号内文本*，即使其被引号包裹</small>
+                </label>
+                <label class="checkbox_label" for="tts_narrate_translated_only">
+                    <input type="checkbox" id="tts_narrate_translated_only">
+                    <small>只朗读翻译后文本</small>
+                </label>
+                <label class="checkbox_label" for="tts_skip_codeblocks">
+                    <input type="checkbox" id="tts_skip_codeblocks">
+                    <small>跳过代码块</small>
+                </label>
+                <label class="checkbox_label" for="tts_skip_tags">
+                    <input type="checkbox" id="tts_skip_tags">
+                    <small>跳过标签化的块（&lt;tagged&gt;）</small>
+                </label>
+                <label class="checkbox_label" for="tts_pass_asterisks">
+                <input type="checkbox" id="tts_pass_asterisks">
+                <small>将星号传递给文本转语音服务</small>
+                </label>
+            </div>
+                <label class="checkbox_label" for="tts_extract_from_audio_tag">
+                    <input type="checkbox" id="tts_extract_from_audio_tag" checked>
+                    <small>从 &lt;audio&gt; 标签提取文本</small>
+                </label>
+                <label for="tts_custom_tag">
+                    <small>自定义提取标签（可选，优先级更高）：</small>
+                </label>
+                <input type="text" id="tts_custom_tag" class="text_pole" placeholder="例如：content, thinking, audio" maxlength="50" />
+                <small>如果设置了自定义标签，系统会优先从该标签中提取文本。留空则默认从 &lt;audio&gt; 标签提取。</small>
+            <div id="playback_rate_block" class="range-block">
+                <hr>
+                <div class="range-block-title justifyLeft">
+                    <small>音频播放速度</small>
+                </div>
+                <div class="range-block-range-and-counter">
+                    <div class="range-block-range">
+                        <input type="range" id="playback_rate" name="volume" min="0" max="3" step="0.05">
+                    </div>
+                    <div class="range-block-counter">
+                        <input type="number" min="0" max="3" step="0.05" data-for="playback_rate" id="playback_rate_counter">
+                    </div>
+                </div>
+            </div>
+            <div id="tts_voicemap_block">
+            </div>
+            <hr>
+            <form id="tts_provider_settings" class="inline-drawer-content">
+            </form>
+            <div class="tts_buttons">
+                <input id="tts_voices" class="menu_button" type="submit" value="可用语音列表" />
+            </div>
+            </div>
+        </div>
+    </div>
+</div>

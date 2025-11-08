@@ -1,0 +1,15 @@
+{
+    "display_name": "酒馆阅读",
+    "loading_order": 10,
+    "requires": [],
+    "optional": [
+        "silero-tts",
+        "edge-tts",
+        "coqui-tts"
+    ],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "ROYWANG",
+    "version": "1.2.0",
+    "homePage": "None"
+}
