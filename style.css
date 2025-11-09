@@ -148,7 +148,10 @@
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
-    touch-action: none; /* 禁用默认触摸行为，确保移动端可拖动 */
+    /* 强化移动端触摸行为控制 */
+    touch-action: none !important; /* 完全禁用默认触摸行为 */
+    -webkit-touch-callout: none; /* 禁用iOS长按菜单 */
+    -webkit-tap-highlight-color: transparent; /* 禁用点击高亮 */
     will-change: transform;
 }
 
@@ -161,25 +164,48 @@
         transform: translateY(-50%) !important;
         right: auto !important;
         bottom: auto !important;
+        /* 移动端额外的触摸优化 */
+        cursor: grab;
+        -webkit-user-drag: none;
+    }
+    
+    /* 移动端拖拽时的样式 */
+    #tts_floating_button.dragging {
+        cursor: grabbing !important;
     }
     
     /* 移动端有自定义位置时保持自定义位置不受媒体查询影响 */
     #tts_floating_button.has-custom-position {
         position: fixed !important;
+        /* 重要：移动端自定义位置时不应用媒体查询的默认位置 */
+        left: 0px !important;
+        top: 0px !important;
+        right: auto !important;
+        bottom: auto !important;
+        /* 完全移除所有过渡和动画效果 */
+        transition: none !important;
+        animation: none !important;
     }
 }
 
 #tts_floating_button.dragging {
-    cursor: grabbing;
-    cursor: -webkit-grabbing;
+    cursor: grabbing !important;
+    cursor: -webkit-grabbing !important;
+    /* 拖拽时的额外样式 */
+    opacity: 0.8;
+    transform-origin: center;
 }
 
-/* 有自定义位置时的样式，完全移除默认定位 */
+/* 全局自定义位置样式 - 移除默认定位，使用transform控制 */
 #tts_floating_button.has-custom-position {
+    position: fixed !important;
     right: auto !important;
     bottom: auto !important;
-    left: 0 !important;
-    top: 0 !important;
+    left: 0px !important;
+    top: 0px !important;
+    /* 确保transform不被其他样式覆盖，移除所有过渡效果 */
+    transition: none !important;
+    animation: none !important;
 }
 
 /* active状态不再需要特殊处理，已通过双击实现停止功能 */

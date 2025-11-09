@@ -70,36 +70,155 @@ function debugFloatingButtonState() {
 window.debugFloatingButtonState = debugFloatingButtonState;
 
 /**
+ * 强制修复悬浮按钮位置的调试函数
+ */
+window.forceFixFloatingButtonPosition = function() {
+    const button = $('#tts_floating_button');
+    if (button.length) {
+        const element = button[0];
+        
+        console.group('🔧 Force Fixing Floating Button Position');
+        
+        // 强制设置自定义位置状态
+        floatingButtonHasCustomPosition = true;
+        floatingButtonCurrentTransform = floatingButtonCurrentTransform || 'translate(100px, 100px)';
+        
+        // 添加CSS类
+        button.addClass('has-custom-position');
+        
+        // 强制设置所有样式
+        element.style.setProperty('position', 'fixed', 'important');
+        element.style.setProperty('left', '0px', 'important');
+        element.style.setProperty('top', '0px', 'important');
+        element.style.setProperty('right', 'auto', 'important');
+        element.style.setProperty('bottom', 'auto', 'important');
+        element.style.setProperty('transform', floatingButtonCurrentTransform, 'important');
+        element.style.setProperty('transition', 'none', 'important');
+        element.style.setProperty('animation', 'none', 'important');
+        
+        console.log('✅ Position forcefully fixed:', {
+            transform: floatingButtonCurrentTransform,
+            hasClass: button.hasClass('has-custom-position'),
+            computedTransform: window.getComputedStyle(element).transform
+        });
+        
+        console.groupEnd();
+    }
+};
+
+/**
+ * 全局调试函数 - 显示完整的悬浮按钮状态
+ */
+window.debugFloatingButtonComplete = function() {
+    const button = $('#tts_floating_button');
+    if (button.length) {
+        const element = button[0];
+        const computedStyle = window.getComputedStyle(element);
+        
+        console.group('🔍 Complete Floating Button Debug Info');
+        console.log('📱 Device Info:', {
+            isMobile: isMobileDevice(),
+            windowWidth: window.innerWidth,
+            windowHeight: window.innerHeight,
+            userAgent: navigator.userAgent
+        });
+        console.log('🎯 Position State:', {
+            hasCustomPosition: floatingButtonHasCustomPosition,
+            currentTransform: floatingButtonCurrentTransform
+        });
+        console.log('🎨 Element Classes:', element.className.split(' '));
+        console.log('📐 Inline Styles:', {
+            position: element.style.position,
+            left: element.style.left,
+            top: element.style.top,
+            right: element.style.right,
+            bottom: element.style.bottom,
+            transform: element.style.transform
+        });
+        console.log('💻 Computed Styles:', {
+            position: computedStyle.position,
+            left: computedStyle.left,
+            top: computedStyle.top,
+            right: computedStyle.right,
+            bottom: computedStyle.bottom,
+            transform: computedStyle.transform
+        });
+        console.log('📏 Element Rect:', element.getBoundingClientRect());
+        console.groupEnd();
+    } else {
+        console.warn('Floating button not found!');
+    }
+};
+
+/**
+ * 统一的移动端检测函数
+ */
+function isMobileDevice() {
+    const isMobile = window.innerWidth <= 768 || 
+           /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.debug('Mobile device detection:', {
+        windowWidth: window.innerWidth,
+        userAgent: navigator.userAgent,
+        isMobile: isMobile
+    });
+    return isMobile;
+}
+
+/**
  * 全局的悬浮按钮位置保存函数
  */
 function preserveFloatingButtonPosition() {
     const button = $('#tts_floating_button');
     if (button.length) {
+        const element = button[0];
+        
+        console.debug('preserveFloatingButtonPosition called:', {
+            hasCustomPosition: floatingButtonHasCustomPosition,
+            currentTransform: floatingButtonCurrentTransform,
+            elementClasses: element.className,
+            currentStyle: {
+                position: element.style.position,
+                left: element.style.left,
+                top: element.style.top,
+                transform: element.style.transform
+            }
+        });
+        
         // 如果有自定义位置，保存自定义位置
         if (floatingButtonHasCustomPosition && floatingButtonCurrentTransform) {
-            console.debug(`Preserving floating button position: ${floatingButtonCurrentTransform}`);
+            console.debug(`Preserving custom position: ${floatingButtonCurrentTransform}`);
             
-            // 强制设置所有定位相关属性
-            const element = button[0];
-            element.style.transform = floatingButtonCurrentTransform;
-            element.style.left = '0px';
-            element.style.top = '0px';
-            element.style.right = 'auto';
-            element.style.bottom = 'auto';
-            element.style.position = 'fixed';
-            
-            // 添加CSS类
+            // 首先添加CSS类
             button.addClass('has-custom-position');
+            
+            // 强制设置所有定位相关属性，使用setProperty确保优先级
+            element.style.setProperty('position', 'fixed', 'important');
+            element.style.setProperty('left', '0px', 'important');
+            element.style.setProperty('top', '0px', 'important');
+            element.style.setProperty('right', 'auto', 'important');
+            element.style.setProperty('bottom', 'auto', 'important');
+            element.style.setProperty('transform', floatingButtonCurrentTransform, 'important');
+            element.style.setProperty('transition', 'none', 'important');
+            element.style.setProperty('animation', 'none', 'important');
             
             // 强制重绘，确保位置立即生效
             element.offsetHeight;
             
-            // 启动位置监控器
-            startPositionMonitor(element);
+            // 暂时禁用位置监控器，避免无限循环
+            // startPositionMonitor(element);
+            
+            console.debug('Custom position applied:', {
+                transform: element.style.transform,
+                hasClass: button.hasClass('has-custom-position')
+            });
         } else {
             // 如果没有自定义位置，确保使用默认的居中位置
-            const element = button[0];
-            const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isMobile = isMobileDevice();
+            
+            console.debug('Preserving default position for', isMobile ? 'mobile' : 'desktop');
+            
+            // 移除自定义位置类，避免CSS冲突
+            button.removeClass('has-custom-position');
             
             element.style.position = 'fixed';
             element.style.right = 'auto';
@@ -107,14 +226,22 @@ function preserveFloatingButtonPosition() {
             element.style.left = '20px';
             
             if (isMobile) {
+                // 移动端：使用vh单位和强制优先级
                 element.style.setProperty('top', '50vh', 'important');
                 element.style.setProperty('transform', 'translateY(-50%)', 'important');
+                element.style.setProperty('left', '20px', 'important');
             } else {
+                // PC端：使用百分比定位
                 element.style.top = '50%';
                 element.style.transform = 'translateY(-50%)';
             }
             
-            console.debug('Preserving default centered position for', isMobile ? 'mobile' : 'desktop');
+            console.debug('Default position applied:', {
+                left: element.style.left,
+                top: element.style.top,
+                transform: element.style.transform,
+                hasClass: button.hasClass('has-custom-position')
+            });
         }
     }
 }
@@ -699,7 +826,10 @@ async function processTtsQueue() {
         if (button.length) {
             button.removeClass('playing paused');
             updateFloatingButtonIcon('default');
-            preserveFloatingButtonPosition();
+            // 确保位置不变 - 使用延迟确保DOM更新完成
+            setTimeout(() => {
+                preserveFloatingButtonPosition();
+            }, 10);
         }
         audioPaused = false;
         
@@ -920,9 +1050,11 @@ async function onFloatingButtonClick(event) {
         audioPaused = true;
         button.removeClass('playing').addClass('paused');
         updateFloatingButtonIcon('pause');
-        // 确保位置不变
-        preserveFloatingButtonPosition();
-        console.info('Audio paused, position preserved');
+        // 确保位置不变 - 使用延迟确保DOM更新完成
+        setTimeout(() => {
+            preserveFloatingButtonPosition();
+            console.info('Audio paused, position preserved');
+        }, 10);
         return;
     }
     
@@ -933,9 +1065,11 @@ async function onFloatingButtonClick(event) {
         audioPaused = false;
         button.removeClass('paused').addClass('playing');
         updateFloatingButtonIcon('play');
-        // 确保位置不变
-        preserveFloatingButtonPosition();
-        console.info('Audio resumed, position preserved');
+        // 确保位置不变 - 使用延迟确保DOM更新完成
+        setTimeout(() => {
+            preserveFloatingButtonPosition();
+            console.info('Audio resumed, position preserved');
+        }, 10);
         return;
     }
     
@@ -963,8 +1097,10 @@ async function onFloatingButtonClick(event) {
         // 添加播放状态
         button.removeClass('paused').addClass('playing');
         updateFloatingButtonIcon('play');
-        // 确保位置不变
-        preserveFloatingButtonPosition();
+        // 确保位置不变 - 使用延迟确保DOM更新完成
+        setTimeout(() => {
+            preserveFloatingButtonPosition();
+        }, 10);
         
         // 开始处理
         await moduleWorker();
@@ -976,7 +1112,10 @@ async function onFloatingButtonClick(event) {
         // 重置悬浮球状态为默认状态（蓝色）
         button.removeClass('playing paused');
         updateFloatingButtonIcon('default');
-        preserveFloatingButtonPosition();
+        // 确保位置不变 - 使用延迟确保DOM更新完成
+        setTimeout(() => {
+            preserveFloatingButtonPosition();
+        }, 10);
         audioPaused = false;
         
         // 停止音频播放状态
@@ -1015,11 +1154,7 @@ function addFloatingTtsButton() {
     // 添加到 body
     $('body').append(floatingButton);
     
-    // 检测是否为移动端
-    function isMobileDevice() {
-        return window.innerWidth <= 768 || 
-               /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
+    // 使用全局的移动端检测函数
     
     // 设置初始位置的函数
     function setInitialPosition() {
@@ -1094,6 +1229,14 @@ function addFloatingTtsButton() {
         
         startX = clientX;
         startY = clientY;
+        
+        console.debug('🎯 Pointer down detected:', {
+            clientX, clientY,
+            offsetX, offsetY,
+            startX, startY,
+            isDragging,
+            dragStarted
+        });
     }
     
     // 鼠标按下事件
@@ -1108,10 +1251,31 @@ function addFloatingTtsButton() {
     
     // 触摸开始事件（移动端支持）
     floatingButton.on('touchstart', function(e) {
+        console.debug('touchstart event:', {
+            touchesLength: e.originalEvent.touches.length,
+            touch: e.originalEvent.touches[0] ? {
+                clientX: e.originalEvent.touches[0].clientX,
+                clientY: e.originalEvent.touches[0].clientY
+            } : null
+        });
+        
+        // 确保只处理单点触摸
+        if (e.originalEvent.touches.length !== 1) {
+            console.debug('Ignoring multi-touch');
+            return;
+        }
+        
         const touch = e.originalEvent.touches[0];
         handlePointerDown(touch.clientX, touch.clientY, this);
+        
+        // 阻止默认行为，防止页面滚动和其他触摸手势
         e.preventDefault();
         e.stopPropagation();
+        
+        // 阻止上下文菜单
+        e.originalEvent.preventDefault();
+        
+        console.debug('touchstart handled successfully');
     });
     
     // 统一的移动处理函数
@@ -1124,6 +1288,7 @@ function addFloatingTtsButton() {
         // 如果移动超过 5px，认为是拖动
         if (!dragStarted && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) {
             dragStarted = true;
+            console.debug('🎯 Drag started!', { deltaX, deltaY });
             
             // 添加拖动样式
             floatingButton.addClass('dragging');
@@ -1148,24 +1313,67 @@ function addFloatingTtsButton() {
             // 直接使用 transform 更新位置，性能最佳
             floatingButtonCurrentTransform = `translate(${newX}px, ${newY}px)`;
             floatingButtonHasCustomPosition = true; // 标记已有自定义位置
-            floatingButton[0].style.transform = floatingButtonCurrentTransform;
-            // 添加CSS类标记，CSS会自动处理定位属性
+            
+            const element = floatingButton[0];
+            
+            // 首先添加CSS类，确保样式优先级
             floatingButton.addClass('has-custom-position');
-            console.debug(`Updated floating button position: ${floatingButtonCurrentTransform}`);
+            
+            // 强制设置所有定位属性，使用setProperty确保优先级
+            element.style.setProperty('position', 'fixed', 'important');
+            element.style.setProperty('left', '0px', 'important');
+            element.style.setProperty('top', '0px', 'important');
+            element.style.setProperty('right', 'auto', 'important');
+            element.style.setProperty('bottom', 'auto', 'important');
+            element.style.setProperty('transform', floatingButtonCurrentTransform, 'important');
+            element.style.setProperty('transition', 'none', 'important');
+            element.style.setProperty('animation', 'none', 'important');
+            
+            console.debug(`Updated floating button position: ${floatingButtonCurrentTransform}`, {
+                newX, newY,
+                elementStyle: {
+                    left: element.style.left,
+                    top: element.style.top,
+                    transform: element.style.transform
+                }
+            });
         }
     }
     
     // 鼠标移动事件
     $(document).on('mousemove.floatingButton', function(e) {
+        // 只有在拖拽时才处理
+        if (!isDragging) return;
         handlePointerMove(e.clientX, e.clientY);
     });
     
     // 触摸移动事件（移动端支持）
     $(document).on('touchmove.floatingButton', function(e) {
+        // 只有在开始拖拽时才处理事件（不需要等待dragStarted）
         if (!isDragging) return;
+        
+        // 确保只处理单点触摸
+        if (e.originalEvent.touches.length !== 1) {
+            console.debug('touchmove: Ignoring multi-touch');
+            return;
+        }
+        
         const touch = e.originalEvent.touches[0];
+        console.debug('touchmove event:', {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            isDragging: isDragging,
+            dragStarted: dragStarted
+        });
+        
         handlePointerMove(touch.clientX, touch.clientY);
-        e.preventDefault(); // 阻止页面滚动
+        
+        // 只在真正开始拖拽后才阻止默认行为
+        if (dragStarted) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.originalEvent.preventDefault();
+        }
     });
     
     // 统一的释放处理函数
@@ -1201,8 +1409,10 @@ function addFloatingTtsButton() {
                 floatingButton.removeClass('playing paused');
                 updateFloatingButtonIcon('default');
                 audioPaused = false;
-                // 确保位置不变
-                preserveFloatingButtonPosition();
+                // 确保位置不变 - 使用延迟确保DOM更新完成
+                setTimeout(() => {
+                    preserveFloatingButtonPosition();
+                }, 10);
                 toastr.info('已停止播放');
                 
                 // 重置时间，防止触发三次点击
@@ -1219,12 +1429,21 @@ function addFloatingTtsButton() {
     
     // 鼠标释放事件
     $(document).on('mouseup.floatingButton', function(e) {
-        handlePointerUp(e);
+        // 只有在拖拽时才处理
+        if (isDragging) {
+            handlePointerUp(e);
+        }
     });
     
     // 触摸结束事件（移动端支持）
-    $(document).on('touchend.floatingButton', function(e) {
-        handlePointerUp(e);
+    $(document).on('touchend.floatingButton touchcancel.floatingButton', function(e) {
+        // 只有在拖拽时才处理和阻止事件
+        if (isDragging) {
+            handlePointerUp(e);
+            // 只在拖拽时才阻止默认行为
+            e.preventDefault();
+            e.stopPropagation();
+        }
     });
     
     // 保存和恢复按钮位置的函数（已移到全局，这里保留兼容性）
@@ -1239,9 +1458,11 @@ function addFloatingTtsButton() {
         if (button.length) {
             button.removeClass('paused').addClass('playing');
             updateFloatingButtonIcon('play');
-            // 保持位置不变 - 立即执行，不延迟
-            preserveFloatingButtonPosition();
-            console.debug('Position preserved after play event');
+            // 保持位置不变 - 使用延迟确保DOM更新完成
+            setTimeout(() => {
+                preserveFloatingButtonPosition();
+                console.debug('Position preserved after play event');
+            }, 10);
         }
     });
     
@@ -1251,8 +1472,10 @@ function addFloatingTtsButton() {
         if (button.length && audioElement.src && audioElement.src !== '' && !audioElement.src.includes('silence.mp3')) {
             button.removeClass('playing').addClass('paused');
             updateFloatingButtonIcon('pause');
-            // 保持位置不变 - 立即执行，不延迟
-            preserveFloatingButtonPosition();
+            // 保持位置不变 - 使用延迟确保DOM更新完成
+            setTimeout(() => {
+                preserveFloatingButtonPosition();
+            }, 10);
         }
     });
     
@@ -1263,8 +1486,10 @@ function addFloatingTtsButton() {
             button.removeClass('playing paused');
             updateFloatingButtonIcon('default');
             audioPaused = false;
-            // 保持位置不变 - 立即执行，不延迟
-            preserveFloatingButtonPosition();
+            // 保持位置不变 - 使用延迟确保DOM更新完成
+            setTimeout(() => {
+                preserveFloatingButtonPosition();
+            }, 10);
         }
     });
     
@@ -1275,8 +1500,10 @@ function addFloatingTtsButton() {
         if (button.length) {
             button.removeClass('playing paused long-pressing');
             updateFloatingButtonIcon('default');
-            // 保持位置不变 - 立即执行，不延迟
-            preserveFloatingButtonPosition();
+            // 保持位置不变 - 使用延迟确保DOM更新完成
+            setTimeout(() => {
+                preserveFloatingButtonPosition();
+            }, 10);
         }
         audioPaused = false;
         originalResetTtsPlayback.call(this);
