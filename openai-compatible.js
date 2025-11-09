@@ -314,11 +314,15 @@ class OpenAICompatibleTtsProvider {
     async fetchTtsGeneration(inputText, voiceId) {
         console.info(`Generating new TTS for voice_id ${voiceId}`);
         
-        // 从 DOM 中提取 mes_text 的文本内容
-        const mesText = this.extractTextFromMesBlock();
+        // 优先使用传入的 inputText，只有当它为空时才从 DOM 中提取
+        let finalText = inputText;
         
-        // 如果成功提取到文本，使用它；否则回退到传入的 inputText
-        const finalText = mesText || inputText;
+        // 只有当没有传入文本时，才从 DOM 中提取最新消息
+        if (!finalText || finalText.trim() === '') {
+            console.debug('No input text provided, extracting from DOM');
+            const mesText = this.extractTextFromMesBlock();
+            finalText = mesText || inputText;
+        }
         
         console.debug(`Using text for TTS: "${finalText}"`);
         
