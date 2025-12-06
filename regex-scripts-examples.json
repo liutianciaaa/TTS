@@ -1,0 +1,93 @@
+[
+    {
+        "id": "example-1",
+        "scriptName": "提取audio标签内容",
+        "findRegex": "/<audio>(.*?)<\\/audio>/gis",
+        "replaceString": "$1",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-2",
+        "scriptName": "移除thinking标签",
+        "findRegex": "/<thinking>.*?<\\/thinking>/gis",
+        "replaceString": "",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-3",
+        "scriptName": "提取双引号对话",
+        "findRegex": "/\"([^\"]+)\"/g",
+        "replaceString": "$1 ",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-4",
+        "scriptName": "移除星号内容",
+        "findRegex": "/\\*[^*]*\\*/g",
+        "replaceString": "",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-5",
+        "scriptName": "提取content标签",
+        "findRegex": "/<content>(.*?)<\\/content>/gis",
+        "replaceString": "$1",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-6",
+        "scriptName": "替换动作标记为中文",
+        "findRegex": "/\\*([^*]+)\\*/g",
+        "replaceString": "（动作：$1）",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-7",
+        "scriptName": "提取dialogue标签",
+        "findRegex": "/<dialogue>(.*?)<\\/dialogue>/gis",
+        "replaceString": "$1",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-8",
+        "scriptName": "移除所有HTML标签",
+        "findRegex": "/<[^>]*>/g",
+        "replaceString": "",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-9",
+        "scriptName": "提取命名捕获组示例-audio",
+        "findRegex": "/<audio>(?<text>.*?)<\\/audio>/gis",
+        "replaceString": "$<text>",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    },
+    {
+        "id": "example-10",
+        "scriptName": "移除方括号内容",
+        "findRegex": "/\\[[^\\]]*\\]/g",
+        "replaceString": "",
+        "trimStrings": [],
+        "disabled": false,
+        "substituteRegex": 0
+    }
+]
+

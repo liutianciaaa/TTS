@@ -1,6 +1,7 @@
 import { cancelTtsPlay, eventSource, event_types, getCurrentChatId, isStreamingEnabled, name2, saveSettingsDebounced, substituteParams } from '/script.js';
 import { ModuleWorkerWrapper, doExtrasFetch, extension_settings, getApiUrl, getContext, modules, renderExtensionTemplateAsync } from '/scripts/extensions.js';
 import { delay, escapeRegex, getBase64Async, getStringHash, onlyUnique } from '/scripts/utils.js';
+import { runRegexScript, runRegexScripts, validateRegexScript, createEmptyRegexScript } from './regex-engine.js';
 import { EdgeTtsProvider } from './edge.js';
 import { ElevenLabsTtsProvider } from './elevenlabs.js';
 import { SileroTtsProvider } from './silerotts.js';
@@ -34,6 +35,7 @@ const UPDATE_INTERVAL = 1000;
 let voiceMapEntries = [];
 let voiceMap = {}; // {charName:voiceid, charName2:voiceid2}
 let talkingHeadState = false;
+let regexScripts = []; // 正则脚本列表
 let lastChatId = null;
 let lastMessage = null;
 let lastMessageHash = null;
@@ -872,6 +874,25 @@ window['playFullConversation'] = playFullConversation;
 function extractTextFromTags(text) {
     if (!text) return '';
     
+    let processedText = text;
+    
+    // 【新功能】优先级0：如果启用了正则处理，先应用正则脚本
+    if (extension_settings.SillyTavernTTS.regex_enabled && regexScripts && regexScripts.length > 0) {
+        const enabledScripts = regexScripts.filter(script => !script.disabled);
+        if (enabledScripts.length > 0) {
+            console.info(`Applying ${enabledScripts.length} regex scripts to text`);
+            console.info(`Original text: "${processedText.substring(0, 200)}..." (length: ${processedText.length})`);
+            processedText = runRegexScripts(enabledScripts, processedText);
+            console.info(`Text after regex processing: "${processedText.substring(0, 200)}..." (length: ${processedText.length})`);
+            
+            // 如果正则处理后文本为空，给出警告
+            if (!processedText || processedText.trim() === '') {
+                console.warn('⚠️ Regex processing resulted in empty text! Check your regex scripts.');
+                console.warn('Enabled scripts:', enabledScripts.map(s => ({name: s.scriptName, findRegex: s.findRegex, replaceString: s.replaceString})));
+            }
+        }
+    }
+    
     // 获取设置
     const customTags = extension_settings.SillyTavernTTS.custom_extraction_tag || '';
     const extractFromAudio = extension_settings.SillyTavernTTS.extract_from_audio_tag;
@@ -884,7 +905,7 @@ function extractTextFromTags(text) {
         let allMatches = [];
         
         for (const tag of tagList) {
-            const tagContent = extractFromSpecificTag(text, tag);
+            const tagContent = extractFromSpecificTag(processedText, tag);
             if (tagContent.length > 0) {
                 allMatches.push(...tagContent);
                 console.info(`Extracted text from custom tag <${tag}>: "${tagContent.join(', ')}"`);
@@ -900,17 +921,17 @@ function extractTextFromTags(text) {
     
     // 优先级2：如果启用了audio标签提取且没有从自定义标签获取到文本
     if (!extractedText && extractFromAudio) {
-        const audioContent = extractFromSpecificTag(text, 'audio');
+        const audioContent = extractFromSpecificTag(processedText, 'audio');
         if (audioContent.length > 0) {
             extractedText = audioContent.join(' ');
             console.info(`Extracted text from <audio> tag: "${extractedText}"`);
         }
     }
     
-    // 如果以上方法都没有获取到文本，使用原始文本
+    // 如果以上方法都没有获取到文本，使用处理后的文本
     if (!extractedText) {
-        extractedText = text;
-        console.info(`Using original text (no tag extraction): "${extractedText.substring(0, 100)}..."`);
+        extractedText = processedText;
+        console.info(`Using processed text (no tag extraction): "${extractedText.substring(0, 100)}..."`);
     }
     
     // 清理HTML标签和多余的空白字符
@@ -1537,6 +1558,11 @@ function loadSettings() {
     $('#playback_rate_block').toggle(extension_settings.SillyTavernTTS.currentProvider !== 'System');
     $('#tts_extract_from_audio_tag').prop('checked', extension_settings.SillyTavernTTS.extract_from_audio_tag);
     $('#tts_custom_tag').val(extension_settings.SillyTavernTTS.custom_extraction_tag || '');
+    
+    // 【新增】加载正则设置
+    $('#tts_regex_enabled').prop('checked', extension_settings.SillyTavernTTS.regex_enabled);
+    regexScripts = extension_settings.SillyTavernTTS.regex_scripts || [];
+    loadRegexScriptsList(); // 加载正则脚本列表
 
     $('body').toggleClass('tts', extension_settings.SillyTavernTTS.enabled);
 }
@@ -1551,6 +1577,8 @@ const defaultSettings = {
     extract_from_audio_tag: true,
     custom_extraction_tag: '',
     narrate_by_paragraphs: false,
+    regex_enabled: false, // 【新增】是否启用正则文本处理
+    regex_scripts: [], // 【新增】正则脚本列表
 };
 
 function setTtsStatus(status, success) {
@@ -2117,6 +2145,425 @@ async function initVoiceMapInternal(unrestricted) {
     updateVoiceMap();
 }
 
+//#############################//
+//  正则脚本管理功能            //
+//#############################//
+
+/**
+ * 加载正则脚本列表到UI
+ */
+function loadRegexScriptsList() {
+    const container = $('#tts_regex_scripts_list');
+    container.empty();
+    
+    if (!regexScripts || regexScripts.length === 0) {
+        container.html(`
+            <div style="text-align: center; color: #999; padding: 20px;">
+                <i class="fa-solid fa-inbox" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
+                <p>还没有正则脚本</p>
+                <p style="font-size: 12px;">点击上方"导入正则脚本"或"新建正则脚本"开始</p>
+            </div>
+        `);
+        return;
+    }
+    
+    regexScripts.forEach((script, index) => {
+        const item = $(`
+            <div class="tts_regex_script_item ${script.disabled ? 'disabled' : ''}" data-index="${index}" style="margin-bottom: 10px; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                <div style="flex: 1;">
+                    <div class="tts_regex_script_name" style="font-weight: bold; margin-bottom: 5px;">${script.scriptName || '未命名脚本'}</div>
+                    <div class="tts_regex_script_pattern" style="font-size: 12px; color: #666; font-family: monospace;">${script.findRegex || '无正则表达式'}</div>
+                </div>
+                <div style="display: flex; gap: 5px; flex-shrink: 0;">
+                    <label class="checkbox_label" style="margin: 0;">
+                        <input type="checkbox" class="tts_regex_script_toggle" ${!script.disabled ? 'checked' : ''}>
+                        <small>启用</small>
+                    </label>
+                    <button class="menu_button tts_regex_script_edit" title="编辑">
+                        <i class="fa-solid fa-edit"></i>
+                    </button>
+                    <button class="menu_button tts_regex_script_delete" title="删除" style="background: #f44336; color: white;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        
+        // 绑定事件
+        item.find('.tts_regex_script_toggle').on('change', function() {
+            script.disabled = !$(this).prop('checked');
+            saveRegexScripts();
+            loadRegexScriptsList();
+        });
+        
+        item.find('.tts_regex_script_edit').on('click', function() {
+            openRegexEditor(index);
+        });
+        
+        item.find('.tts_regex_script_delete').on('click', async function() {
+            if (confirm(`确定要删除正则脚本 "${script.scriptName}" 吗？`)) {
+                regexScripts.splice(index, 1);
+                saveRegexScripts();
+                loadRegexScriptsList();
+                toastr.success('正则脚本已删除');
+            }
+        });
+        
+        container.append(item);
+    });
+}
+
+/**
+ * 保存正则脚本到设置
+ */
+function saveRegexScripts() {
+    extension_settings.SillyTavernTTS.regex_scripts = regexScripts;
+    saveSettingsDebounced();
+    console.info('Regex scripts saved:', regexScripts.length);
+}
+
+/**
+ * 打开正则编辑器
+ * @param {number|null} index - 脚本索引，null表示新建
+ */
+async function openRegexEditor(index = null) {
+    const isEdit = index !== null;
+    const script = isEdit ? { ...regexScripts[index] } : createEmptyRegexScript();
+    
+    // 创建编辑器HTML
+    const editorHtml = $(`
+        <div class="tts_regex_editor" style="min-width: 500px;">
+            <div style="margin-bottom: 15px;">
+                <label for="tts_regex_script_name"><strong>脚本名称：</strong></label>
+                <input type="text" id="tts_regex_script_name" class="text_pole" placeholder="例如：提取对话内容" style="width: 100%;" value="${script.scriptName || ''}">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="tts_regex_find"><strong>查找正则（Find Regex）：</strong></label>
+                <input type="text" id="tts_regex_find" class="text_pole" placeholder="/pattern/flags 或 pattern" style="width: 100%;" value="${script.findRegex || ''}">
+                <small style="color: #666;">支持 /pattern/flags 格式，例如：/&lt;audio&gt;(.*?)&lt;\\/audio&gt;/gi</small>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="tts_regex_replace"><strong>替换字符串（Replace String）：</strong></label>
+                <input type="text" id="tts_regex_replace" class="text_pole" placeholder="$1 或 留空删除" style="width: 100%;" value="${script.replaceString || ''}">
+                <small style="color: #666;">支持 $1, $2 等捕获组，{{match}} 表示完整匹配，留空则删除匹配内容</small>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="tts_regex_trim"><strong>移除字符（Trim Strings）：</strong></label>
+                <textarea id="tts_regex_trim" rows="3" class="text_pole" placeholder="每行一个要移除的字符串" style="width: 100%; resize: vertical;">${Array.isArray(script.trimStrings) ? script.trimStrings.join('\n') : ''}</textarea>
+                <small style="color: #666;">从捕获组结果中移除指定字符串，每行一个</small>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label class="checkbox_label">
+                    <input type="checkbox" id="tts_regex_disabled" ${script.disabled ? 'checked' : ''}>
+                    <small>禁用此脚本</small>
+                </label>
+            </div>
+
+            <!-- 测试区域 -->
+            <div style="margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+                <div style="margin-bottom: 10px;">
+                    <strong>🧪 实时测试：</strong>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="tts_regex_test_input"><small>测试输入：</small></label>
+                    <textarea id="tts_regex_test_input" rows="3" class="text_pole" placeholder="输入要测试的文本" style="width: 100%; resize: vertical;"></textarea>
+                </div>
+                <div>
+                    <label><small>测试输出：</small></label>
+                    <div id="tts_regex_test_output" style="padding: 8px; background: white; border: 1px solid #ccc; border-radius: 4px; min-height: 60px; white-space: pre-wrap; font-family: monospace; font-size: 12px; color: #333;"></div>
+                </div>
+            </div>
+        </div>
+    `);
+    
+    // 实时测试功能
+    function updateTest() {
+        const testScript = {
+            id: script.id,
+            scriptName: editorHtml.find('#tts_regex_script_name').val(),
+            findRegex: editorHtml.find('#tts_regex_find').val(),
+            replaceString: editorHtml.find('#tts_regex_replace').val(),
+            trimStrings: editorHtml.find('#tts_regex_trim').val().split('\n').filter(s => s.trim()),
+            disabled: false,
+        };
+        
+        const testInput = editorHtml.find('#tts_regex_test_input').val();
+        if (testInput) {
+            try {
+                const result = runRegexScript(testScript, testInput);
+                editorHtml.find('#tts_regex_test_output').text(result || '(空结果)');
+            } catch (error) {
+                editorHtml.find('#tts_regex_test_output').html(`<span style="color: red;">错误: ${error.message}</span>`);
+            }
+        } else {
+            editorHtml.find('#tts_regex_test_output').html('<span style="color: #999; font-style: italic;">请输入测试文本</span>');
+        }
+    }
+    
+    editorHtml.find('input, textarea').on('input', updateTest);
+    
+    // 显示编辑器
+    const result = await callGenericPopup(editorHtml, POPUP_TYPE.CONFIRM, '', { 
+        okButton: '保存', 
+        cancelButton: '取消',
+        allowVerticalScrolling: true 
+    });
+    
+    if (result) {
+        // 保存脚本
+        script.scriptName = editorHtml.find('#tts_regex_script_name').val().trim();
+        script.findRegex = editorHtml.find('#tts_regex_find').val().trim();
+        script.replaceString = editorHtml.find('#tts_regex_replace').val();
+        script.trimStrings = editorHtml.find('#tts_regex_trim').val().split('\n').filter(s => s.trim());
+        script.disabled = editorHtml.find('#tts_regex_disabled').prop('checked');
+        
+        // 验证脚本
+        const validation = validateRegexScript(script);
+        if (!validation.valid) {
+            toastr.error('脚本验证失败：' + validation.errors.join(', '));
+            return;
+        }
+        
+        // 保存到列表
+        if (isEdit) {
+            regexScripts[index] = script;
+            toastr.success('正则脚本已更新');
+        } else {
+            regexScripts.push(script);
+            toastr.success('正则脚本已添加');
+        }
+        
+        saveRegexScripts();
+        loadRegexScriptsList();
+    }
+}
+
+/**
+ * 导入正则脚本文件
+ * @param {File} file - JSON文件
+ */
+async function importRegexScripts(file) {
+    try {
+        const text = await file.text();
+        const imported = JSON.parse(text);
+        
+        // 支持单个脚本或脚本数组
+        const scripts = Array.isArray(imported) ? imported : [imported];
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const script of scripts) {
+            // 验证脚本
+            const validation = validateRegexScript(script);
+            if (validation.valid) {
+                // 生成新的ID避免冲突
+                script.id = script.id || createEmptyRegexScript().id;
+                regexScripts.push(script);
+                successCount++;
+            } else {
+                console.error('Invalid script:', script, validation.errors);
+                errorCount++;
+            }
+        }
+        
+        if (successCount > 0) {
+            saveRegexScripts();
+            loadRegexScriptsList();
+            toastr.success(`成功导入 ${successCount} 个正则脚本${errorCount > 0 ? `，${errorCount} 个失败` : ''}`);
+        } else {
+            toastr.error('没有有效的正则脚本可导入');
+        }
+    } catch (error) {
+        console.error('Import regex scripts error:', error);
+        toastr.error('导入失败：' + error.message);
+    }
+}
+
+/**
+ * 导出正则脚本
+ */
+function exportRegexScripts() {
+    if (!regexScripts || regexScripts.length === 0) {
+        toastr.warning('没有正则脚本可导出');
+        return;
+    }
+    
+    const json = JSON.stringify(regexScripts, null, 4);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tts-regex-scripts-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toastr.success(`已导出 ${regexScripts.length} 个正则脚本`);
+}
+
+/**
+ * 测试正则功能
+ */
+async function testRegex() {
+    const testHtml = $(`
+        <div style="min-width: 600px;">
+            <div style="margin-bottom: 15px;">
+                <label><strong>选择正则脚本：</strong></label>
+                <select id="test_regex_select" class="text_pole" style="width: 100%;">
+                    <option value="">-- 选择一个脚本 --</option>
+                    <option value="all">🔍 测试所有启用的脚本</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label><strong>测试输入：</strong></label>
+                <textarea id="test_regex_input" rows="5" class="text_pole" placeholder="输入要测试的文本，例如：&lt;audio&gt;你好世界&lt;/audio&gt;" style="width: 100%; resize: vertical;"></textarea>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <button id="debug_regex_btn" class="menu_button" style="width: 100%;">
+                    <i class="fa-solid fa-bug"></i> 调试所有正则脚本
+                </button>
+            </div>
+            <div>
+                <label><strong>测试输出：</strong></label>
+                <div id="test_regex_output" style="padding: 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; min-height: 100px; white-space: pre-wrap; font-family: monospace; font-size: 12px;"></div>
+            </div>
+        </div>
+    `);
+    
+    // 填充脚本列表
+    regexScripts.forEach((script, index) => {
+        if (!script.disabled) {
+            testHtml.find('#test_regex_select').append(`<option value="${index}">${script.scriptName}</option>`);
+        }
+    });
+    
+    // 调试按钮事件
+    testHtml.find('#debug_regex_btn').on('click', function() {
+        debugRegexScripts();
+        testHtml.find('#test_regex_output').html('<span style="color: #2196F3;">调试信息已输出到控制台，请按F12查看</span>');
+    });
+    
+    // 实时测试
+    function runTest() {
+        const scriptIndex = testHtml.find('#test_regex_select').val();
+        const input = testHtml.find('#test_regex_input').val();
+        
+        if (!scriptIndex || !input) {
+            testHtml.find('#test_regex_output').html('<span style="color: #999; font-style: italic;">请选择脚本并输入测试文本</span>');
+            return;
+        }
+        
+        try {
+            if (scriptIndex === 'all') {
+                // 测试所有启用的脚本
+                const enabledScripts = regexScripts.filter(script => !script.disabled);
+                if (enabledScripts.length === 0) {
+                    testHtml.find('#test_regex_output').html('<span style="color: #f39c12;">没有启用的正则脚本</span>');
+                    return;
+                }
+                
+                let result = input;
+                let output = `测试 ${enabledScripts.length} 个脚本的组合效果:\n\n`;
+                output += `原始文本 (${input.length} 字符):\n${input}\n\n`;
+                
+                enabledScripts.forEach((script, index) => {
+                    const before = result;
+                    result = runRegexScript(script, result);
+                    output += `第 ${index + 1} 步 - ${script.scriptName}:\n`;
+                    output += `  正则: ${script.findRegex}\n`;
+                    output += `  替换: ${script.replaceString || '(删除匹配内容)'}\n`;
+                    output += `  结果 (${result.length} 字符): ${result || '(空)'}\n\n`;
+                });
+                
+                output += `最终结果: ${result || '(空)'}`;
+                testHtml.find('#test_regex_output').text(output);
+            } else {
+                // 测试单个脚本
+                const script = regexScripts[scriptIndex];
+                const result = runRegexScript(script, input);
+                let output = `脚本: ${script.scriptName}\n`;
+                output += `正则: ${script.findRegex}\n`;
+                output += `替换: ${script.replaceString || '(删除匹配内容)'}\n\n`;
+                output += `原始 (${input.length} 字符): ${input}\n`;
+                output += `结果 (${result.length} 字符): ${result || '(空)'}`;
+                testHtml.find('#test_regex_output').text(output);
+            }
+        } catch (error) {
+            testHtml.find('#test_regex_output').html(`<span style="color: red;">错误: ${error.message}</span>`);
+        }
+    }
+    
+    testHtml.find('#test_regex_select, #test_regex_input').on('input', runTest);
+    
+    await callGenericPopup(testHtml, POPUP_TYPE.TEXT, '', { 
+        okButton: '关闭',
+        allowVerticalScrolling: true 
+    });
+}
+
+/**
+ * 启用/禁用正则处理
+ */
+function onRegexEnabledClick() {
+    extension_settings.SillyTavernTTS.regex_enabled = $('#tts_regex_enabled').prop('checked');
+    saveSettingsDebounced();
+    console.info('Regex text processing enabled:', extension_settings.SillyTavernTTS.regex_enabled);
+}
+
+/**
+ * 调试正则脚本 - 检查哪些脚本可能导致文本被清空
+ */
+function debugRegexScripts() {
+    if (!regexScripts || regexScripts.length === 0) {
+        console.log('📋 No regex scripts found');
+        return;
+    }
+    
+    const enabledScripts = regexScripts.filter(script => !script.disabled);
+    console.group('🔍 Regex Scripts Debug Info');
+    console.log(`Total scripts: ${regexScripts.length}, Enabled: ${enabledScripts.length}`);
+    
+    enabledScripts.forEach((script, index) => {
+        console.group(`Script ${index + 1}: ${script.scriptName}`);
+        console.log('Find Regex:', script.findRegex);
+        console.log('Replace String:', script.replaceString || '(empty - will delete matches)');
+        console.log('Trim Strings:', script.trimStrings || []);
+        
+        // 检查可能导致问题的脚本
+        if (!script.replaceString) {
+            console.warn('⚠️ This script has empty replace string - it will DELETE all matches!');
+        }
+        
+        // 检查可能匹配整个文本的正则
+        const dangerousPatterns = [
+            /^\..*\*.*$/,  // .*
+            /^\.\+.*$/,    // .+
+            /^.*\$$/, // 以$结尾
+            /^\^.*$/, // 以^开头
+        ];
+        
+        const regexPattern = script.findRegex.replace(/^\/|\/[gimsuvy]*$/g, '');
+        const isDangerous = dangerousPatterns.some(pattern => pattern.test(regexPattern));
+        
+        if (isDangerous && !script.replaceString) {
+            console.error('🚨 DANGEROUS: This script may match entire text and delete it!');
+        }
+        
+        console.groupEnd();
+    });
+    
+    console.groupEnd();
+}
+
+// 暴露调试函数到全局
+window.debugRegexScripts = debugRegexScripts;
+
 jQuery(async function () {
     // 初始化 SillyTavernTTS 设置对象
     if (!extension_settings.SillyTavernTTS) {
@@ -2157,15 +2604,90 @@ jQuery(async function () {
                     <input type="checkbox" id="tts_periodic_auto_generation">
                     <small>按段朗读（流式播放时）</small>
                 </label>
-                <label class="checkbox_label" for="tts_extract_from_audio_tag">
-                    <input type="checkbox" id="tts_extract_from_audio_tag" checked>
-                    <small>从 &lt;audio&gt; 标签提取文本</small>
-                </label>
-                <label for="tts_custom_tag">
-                    <small>自定义提取标签（可选，优先级更高）：</small>
-                </label>
-                <input type="text" id="tts_custom_tag" class="text_pole" placeholder="例如：content, thinking 或 content,thinking,audio" maxlength="100" />
-                <small>支持多个标签，用逗号分隔。如果设置了自定义标签，系统会优先从这些标签中提取文本。留空则默认从 &lt;audio&gt; 标签提取。</small>
+                <!-- 正则文本处理系统 -->
+                <hr>
+                <div class="inline-drawer">
+                    <div class="inline-drawer-toggle inline-drawer-header">
+                        <b>正则文本处理 <span style="color: #ff6b6b;">⭐新功能</span></b>
+                        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                    </div>
+                    <div class="inline-drawer-content">
+                        <!-- 说明文字 -->
+                        <div style="margin-bottom: 15px; padding: 10px; background: #f0f8ff; border-left: 3px solid #2196F3; border-radius: 4px;">
+                            <p style="margin: 0 0 5px 0;"><strong>💡 功能说明：</strong></p>
+                            <p style="margin: 0 0 5px 0;">使用正则表达式提取和处理TTS朗读文本，完全兼容SillyTavern正则系统。</p>
+                            <p style="margin: 0;"><strong>处理顺序：</strong>正则脚本 → 标签提取 → TTS朗读</p>
+                        </div>
+
+                        <!-- 启用开关 -->
+                        <div style="margin-bottom: 15px;">
+                            <label class="checkbox_label" for="tts_regex_enabled">
+                                <input type="checkbox" id="tts_regex_enabled">
+                                <small>启用正则文本处理</small>
+                            </label>
+                        </div>
+
+                        <!-- 导入导出按钮 -->
+                        <div class="tts_regex_buttons" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <input type="file" id="tts_import_regex_file" accept=".json" style="display: none;">
+                            <button id="tts_import_regex" class="menu_button">
+                                <i class="fa-solid fa-file-import"></i> 导入正则脚本
+                            </button>
+                            <button id="tts_export_regex" class="menu_button">
+                                <i class="fa-solid fa-file-export"></i> 导出正则脚本
+                            </button>
+                            <button id="tts_add_regex" class="menu_button">
+                                <i class="fa-solid fa-plus"></i> 新建正则脚本
+                            </button>
+                            <button id="tts_test_regex" class="menu_button">
+                                <i class="fa-solid fa-flask"></i> 测试正则
+                            </button>
+                        </div>
+
+                        <!-- 正则脚本列表 -->
+                        <div id="tts_regex_scripts_container" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #fafafa;">
+                            <div id="tts_regex_scripts_list">
+                                <!-- 脚本列表将在这里动态生成 -->
+                                <div style="text-align: center; color: #999; padding: 20px;">
+                                    <i class="fa-solid fa-inbox" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
+                                    <p>还没有正则脚本</p>
+                                    <p style="font-size: 12px;">点击上方"导入正则脚本"或"新建正则脚本"开始</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 使用示例 -->
+                        <div style="margin-top: 15px; padding: 10px; background: #fffbea; border-left: 3px solid #f39c12; border-radius: 4px;">
+                            <p style="margin: 0 0 5px 0; font-weight: bold;">📚 使用示例：</p>
+                            <ul style="margin: 5px 0; padding-left: 20px; font-size: 12px;">
+                                <li>从SillyTavern导出正则脚本JSON文件</li>
+                                <li>在此处导入正则脚本</li>
+                                <li>启用正则文本处理</li>
+                                <li>正则脚本会自动应用到TTS朗读文本</li>
+                            </ul>
+                        </div>
+
+                        <!-- 兼容性说明 -->
+                        <div style="margin-top: 10px; padding: 8px; background: #e8f5e9; border-left: 3px solid #4caf50; border-radius: 4px; font-size: 12px;">
+                            <p style="margin: 0;"><i class="fa-solid fa-circle-check"></i> <strong>完全兼容：</strong>支持从SillyTavern导出的正则脚本文件</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 保留标签提取功能作为备用 -->
+                <hr>
+                <div style="margin-bottom: 15px;">
+                    <h4 style="margin-bottom: 10px;">传统标签提取 <small style="color: #999;">(备用功能)</small></h4>
+                    <label class="checkbox_label" for="tts_extract_from_audio_tag">
+                        <input type="checkbox" id="tts_extract_from_audio_tag" checked>
+                        <small>从 &lt;audio&gt; 标签提取文本</small>
+                    </label>
+                    <label for="tts_custom_tag">
+                        <small>自定义提取标签（可选）：</small>
+                    </label>
+                    <input type="text" id="tts_custom_tag" class="text_pole" placeholder="例如：content, thinking" maxlength="100" />
+                    <small style="color: #666;">建议使用上方的正则系统，功能更强大。此功能作为简单场景的备用选项。</small>
+                </div>
             </div>
             <div id="playback_rate_block" class="range-block">
                 <hr>
@@ -2201,6 +2723,20 @@ jQuery(async function () {
         $('#tts_narrate_user').on('click', onNarrateUserClick);
         $('#tts_extract_from_audio_tag').on('click', onExtractFromAudioTagClick);
         $('#tts_custom_tag').on('input', onCustomTagInput);
+        
+        // 【新增】绑定正则相关事件
+        $('#tts_regex_enabled').on('click', onRegexEnabledClick);
+        $('#tts_import_regex').on('click', () => $('#tts_import_regex_file').trigger('click'));
+        $('#tts_import_regex_file').on('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                await importRegexScripts(file);
+                e.target.value = ''; // 清空以允许重复导入同一文件
+            }
+        });
+        $('#tts_export_regex').on('click', exportRegexScripts);
+        $('#tts_add_regex').on('click', () => openRegexEditor(null));
+        $('#tts_test_regex').on('click', testRegex);
 
         $('#playback_rate').on('input', function () {
             const value = $(this).val();

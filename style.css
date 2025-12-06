@@ -229,3 +229,188 @@
     background: #ffc107;
     box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
 }
+
+/* 正则脚本管理样式 */
+.tts_regex_buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.tts_regex_buttons .menu_button {
+    flex: 1;
+    min-width: 120px;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background: #f8f9fa;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.tts_regex_buttons .menu_button:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tts_regex_buttons .menu_button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.tts_regex_buttons .menu_button i {
+    font-size: 14px;
+}
+
+/* 正则脚本列表项样式 */
+.tts_regex_script_item {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.tts_regex_script_item:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.tts_regex_script_item.disabled {
+    opacity: 0.6;
+    background: #f5f5f5 !important;
+}
+
+.tts_regex_script_item .tts_regex_script_name {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.tts_regex_script_item .tts_regex_script_pattern {
+    font-size: 12px;
+    color: #666;
+    font-family: 'Courier New', monospace;
+    background: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+/* 正则脚本容器样式 */
+#tts_regex_scripts_container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    background: #fafafa;
+}
+
+#tts_regex_scripts_list:empty::after {
+    content: '还没有正则脚本，点击上方按钮添加';
+    display: block;
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-style: italic;
+}
+
+/* 正则编辑器样式 */
+.tts_regex_editor {
+    min-width: 500px;
+}
+
+.tts_regex_editor .text_pole {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.tts_regex_editor textarea {
+    resize: vertical;
+    font-family: 'Courier New', monospace;
+}
+
+/* 测试输出区域样式 */
+#tts_regex_test_output {
+    padding: 8px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-height: 60px;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #333;
+}
+
+#tts_regex_test_output:empty::after {
+    content: '测试结果将显示在这里';
+    color: #999;
+    font-style: italic;
+}
+
+/* 信息提示框样式 */
+.tts-info-box {
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border-left: 3px solid;
+}
+
+.tts-info-box.info {
+    background: #f0f8ff;
+    border-left-color: #2196F3;
+}
+
+.tts-info-box.warning {
+    background: #fffbea;
+    border-left-color: #f39c12;
+}
+
+.tts-info-box.success {
+    background: #e8f5e9;
+    border-left-color: #4caf50;
+}
+
+.tts-info-box p {
+    margin: 0 0 5px 0;
+}
+
+.tts-info-box p:last-child {
+    margin-bottom: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .tts_regex_buttons {
+        flex-direction: column;
+    }
+    
+    .tts_regex_buttons .menu_button {
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .tts_regex_script_item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .tts_regex_editor {
+        min-width: auto;
+        width: 100%;
+    }
+}
